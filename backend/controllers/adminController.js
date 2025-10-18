@@ -182,6 +182,27 @@ import blogPostModel from "../models/blogPostModel.js";
 };
 
 // API for the admin Login
+// const loginAdmin = async (req, res) => {
+//   try {
+//     const { email, password } = req.body;
+
+//     if (
+//       email === process.env.ADMIN_EMAIL &&
+//       password === process.env.ADMIN_PASSWORD
+//     ) {
+//       const token = jwt.sign(email + password, process.env.JWT_SECRET);
+//       return res.json({ success: true, message: "Admin Logged In 🎉", token });
+//     } else {
+//       return res.json({ success: false, message: "Invalid Credentials." });
+//     }
+//   } catch (error) {
+//     console.log(error);
+//     res
+//       .status(500)
+//       .json({ success: false, message: `Server error: ${error.message}` });
+//   }
+// };
+
 const loginAdmin = async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -190,7 +211,8 @@ const loginAdmin = async (req, res) => {
       email === process.env.ADMIN_EMAIL &&
       password === process.env.ADMIN_PASSWORD
     ) {
-      const token = jwt.sign(email + password, process.env.JWT_SECRET);
+      // ✅ FIXED: Token now contains email as object
+      const token = jwt.sign({ email }, process.env.JWT_SECRET);
       return res.json({ success: true, message: "Admin Logged In 🎉", token });
     } else {
       return res.json({ success: false, message: "Invalid Credentials." });
@@ -200,6 +222,52 @@ const loginAdmin = async (req, res) => {
     res
       .status(500)
       .json({ success: false, message: `Server error: ${error.message}` });
+  }
+};
+
+// Create a blog by admin
+// Create a blog by admin
+const createBlogByAdmin = async (req, res) => {
+  try {
+    const { title, content, category, excerpt, status } = req.body;
+
+    // Generate slug from title (URL-friendly version)
+    const slug = title
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-") // Replace non-alphanumeric with hyphens
+      .replace(/^-+|-+$/g, ""); // Remove leading/trailing hyphens
+
+    // Get admin user ID or use a default
+    // First, try to find an admin user in the database
+    let adminUser = await userModel.findOne({ role: "admin" });
+    
+    // If no admin user exists, create a default admin ID
+    const authorId = adminUser ? adminUser._id : "000000000000000000000000";
+
+    const newBlog = new blogPostModel({
+      title,
+      content,
+      category,
+      excerpt: excerpt || content.replace(/<[^>]*>/g, "").substring(0, 200),
+      slug, // ← ADDED
+      authorId, // ← ADDED
+      status: status || "published",
+      author: "Admin",
+      submittedAt: Date.now(),
+      createdAt: Date.now(),
+    });
+
+    await newBlog.save();
+    res.status(201).json({
+      success: true,
+      message: "Blog created successfully!",
+    });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ 
+      success: false, 
+      message: error.message || "Failed to create blog" 
+    });
   }
 };
 
@@ -986,6 +1054,7 @@ export {
   appointmentsAdmin,
   appointmentCancel,
   adminDashboard,
+  createBlogByAdmin,
   allPatients,
   downloadPatientsPDF,
   downloadPatientsExcel,
